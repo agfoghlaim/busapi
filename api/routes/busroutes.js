@@ -77,19 +77,37 @@ router.get('/:busrouteNo/:direction/busstops', (req,res,next)=>{
 */
 router.get('/:busrouteNo/:direction/:bestopid', (req,res,next)=>{
   const {busrouteNo, direction, bestopid} = req.params
-  console.log(bestopid)
-  // BusRoute.find({route:busrouteNo,direction:direction,'stops.bestopid': {$eq:bestopid}})
 
-  // BusRoute.find({
-  //   "stops.bestopid":bestopid, "route":busrouteNo, "direction":direction
-  // })
-
-  BusRoute.aggregate([{$unwind: "$stops"},{$match: { "route": busrouteNo, "direction":direction, "stops.bestopid": bestopid  } }])
- //.select('stops.bestopid')
+  BusRoute.aggregate([{$unwind: "$stops"},{$match: { "route": busrouteNo, "direction": direction, "stops.bestopid": bestopid  } }])
   .exec()
   .then(doc=>{
     console.log("len ", doc.length)
     res.status(200).json(doc)
+
+  })
+  .catch(err=>{
+    console.log("err route dir",err)
+    res.status(500).json({error:err})
+  })
+})
+
+/*
+
+/busroutes/direction/:stopid/timetable/today
+
+
+*/
+
+router.get('/:busrouteNo/:direction/:bestopid/timetable/today', (req,res,next)=>{
+  const {busrouteNo, direction, bestopid} = req.params
+  const timetableName = getTimetableName()
+  BusRoute.aggregate([{$unwind: "$stops"},{$match: { "route": busrouteNo, "direction": direction, "stops.bestopid": bestopid  } }])
+  .exec()
+  .then(doc=>{
+    console.log("len ", doc)
+    let respondWithtimetable = {}
+    respondWithtimetable[`${timetableName}`]=doc[0].stops[timetableName];
+    res.status(200).json(respondWithtimetable)
 
   })
   .catch(err=>{
@@ -105,3 +123,42 @@ router.post('/', (req,res,next)=>{
 })
 
 module.exports = router;
+
+
+
+/*
+
+TODO move anything below here into seperate file
+
+*/
+
+function getTimetableName(){
+  let dayNumber = new Date().getDay();
+  let day = {};
+  
+    if(dayNumber > 0 && dayNumber < 6){
+      day =  'bus_times_week'
+    }else if(dayNumber === 0 ){
+      day =  'bus_times_sun';
+    }else if(dayNumber === 6 ){
+      day =  'bus_times_sat';
+    }else{
+      day = 'did not get the correct day'
+    }
+   return day
+}
+// function getDayOfWeek(){
+//   let dayNumber = new Date().getDay();
+//   let day = {};
+  
+//     if(dayNumber > 0 && dayNumber < 6){
+//       day =  {dayName:'bus_times_week', dayNumber:dayNumber};
+//     }else if(dayNumber === 0 ){
+//       day =  {dayName:'bus_times_sun', dayNumber:dayNumber};
+//     }else if(dayNumber === 6 ){
+//       day =  {dayName:'bus_times_sat', dayNumber:dayNumber};
+//     }else{
+//       day = 'did not get the correct day'
+//     }
+//    return day
+// }
