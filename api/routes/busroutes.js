@@ -168,26 +168,37 @@ router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
   .exec()
   .then(doc=>{
     let resp = doc[0].stops.find(stop=>stop.bestopid === bestopid).toObject()
-    
     let relevantSnaps = resp.snapshots.filter(snap=>snap.dayOfWeek === 'Mon')
     let relevantTimetable = resp.bus_times_week;
-    let respWithSnaps = relevantTimetable.map(bus=>{
-      for(let i = 0;i< relevantSnaps.length;i++){
-          if(isWithinMinutesOf(bus.time,relevantSnaps[i].forBusDue,2)){
-          return {
-            bus:bus.bus,
-            time:bus.time,
-            snapshot:relevantSnaps[i]
-          }
-        } 
-      }
-        return {
-          bus:bus.bus,
-          time:bus.time,
-          snapshot:false
-        }
-    })
-    //console.log("timetable, ",respWithSnaps, respWithSnaps.length)
+    
+    // let pretendSnapShotsForTesting = [
+    //   {forBusDue: '23:24', name:'pretend snap', date:'last monday'},
+    //   {forBusDue: '07:26', name:'pretend snap', date:'the monday before last'},
+    //   {forBusDue: '07:26', name:'pretend snap', date:'a few mondays ago'},
+    //   {forBusDue: '23:24', name:'pretend snap', date:'the monday before last'},
+    //   {forBusDue: '07:26', name:'pretend snap', date:'last monday'},
+    //   {forBusDue: '23:24', name:'pretend snap', date:'some other omonday'},
+    //   {forBusDue: '07:26', name:'pretend snap', date:'last monday'}
+    // ]
+    // relevantSnaps = pretendSnapShotsForTesting
+
+    let respWithSnaps = relevantTimetable.reduce((out,bus, j,all)=>{
+            let obj = {
+              bus:bus.bus,
+              time:bus.time,
+              snapshots:[]
+            }
+
+            for(let i = 0; i< relevantSnaps.length;i++){
+                if(isWithinMinutesOf(bus.time,relevantSnaps[i].forBusDue,2)){
+                obj.snapshots.push(relevantSnaps[i])
+              } 
+            }
+            out.push(obj)
+            return out
+        
+    },[])
+    
     res.status(200).json(respWithSnaps)
   })
   .catch(err=>{
@@ -195,6 +206,9 @@ router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
     res.status(500).json({error:err})
   })
 })
+
+
+
 
 
 
