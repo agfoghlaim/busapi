@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const BusRoute = require('../models/busroute')
+const helpers = require('./helpers');
 
 router.get('/', (req,res,next)=>{
   res.status(200).json({
@@ -124,7 +125,7 @@ GET TODAY's TIMETABLE
 router.get('/:busrouteNo/:direction/:bestopid/timetable/today', (req,res,next)=>{
   console.log("here")
   const {busrouteNo, direction, bestopid} = req.params;
-  const timetableName = getTimetableName();
+  const timetableName = helpers.getTimetableName();
 
   BusRoute.aggregate([{$unwind: "$stops"},{$match: { "route": busrouteNo, "direction": direction, "stops.bestopid": bestopid  } }])
   .exec()
@@ -155,14 +156,15 @@ module.exports = router;
 =====================================
 
 WITH SNAPSHOT included in the bus_times_x array
+This route defaults to today's timetable
 
 ====================================
 
 */
 router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
   const {busrouteNo, direction, bestopid} = req.params
-  
-  let whichTimetable = getNameOfTodaysTimetable();
+
+  let whichTimetable = helpers.getNameOfTodaysTimetable();
   let dayToday = new Date().toString().substring(0,3)
   
   BusRoute.find({route:busrouteNo,direction:direction,"stops.bestopid": bestopid, "stops.snapshots.dayOfWeek": `${dayToday}`})
@@ -172,35 +174,10 @@ router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
     let resp = doc[0].stops.find(stop=>stop.bestopid === bestopid).toObject()
     let relevantSnaps = resp.snapshots.filter(snap=>snap.dayOfWeek === 'Mon')
     let relevantTimetable = resp[`${whichTimetable.dayName}`];
-    
-    // let pretendSnapShotsForTesting = [
-    //   {forBusDue: '23:24', name:'pretend snap', date:'last monday'},
-    //   {forBusDue: '07:26', name:'pretend snap', date:'the monday before last'},
-    //   {forBusDue: '07:26', name:'pretend snap', date:'a few mondays ago'},
-    //   {forBusDue: '23:24', name:'pretend snap', date:'the monday before last'},
-    //   {forBusDue: '07:26', name:'pretend snap', date:'last monday'},
-    //   {forBusDue: '23:24', name:'pretend snap', date:'some other omonday'},
-    //   {forBusDue: '07:26', name:'pretend snap', date:'last monday'}
-    // ]
-    // relevantSnaps = pretendSnapShotsForTesting
+    //relevantSnaps = helpers.pretendSnapShotsForTesting
 
-    let respWithSnaps = relevantTimetable.reduce((out,bus, j,all)=>{
-            let obj = {
-              bus:bus.bus,
-              time:bus.time,
-              snapshots:[]
-            }
-
-            for(let i = 0; i< relevantSnaps.length;i++){
-                if(isWithinMinutesOf(bus.time,relevantSnaps[i].forBusDue,2)){
-                obj.snapshots.push(relevantSnaps[i])
-              } 
-            }
-            out.push(obj)
-            return out
-        
-    },[])
-
+    let respWithSnaps = helpers.addSnapshotsArrayToTimetable(relevantTimetable,relevantSnaps);
+ 
     res.status(200).json(respWithSnaps)
   })
   .catch(err=>{
@@ -211,67 +188,3 @@ router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
 
 
 
-
-
-
-
-
-
-/*
-
-TODO move anything below here into seperate file
-
-*/
-
-function getTimetableName(){
-  let dayNumber = new Date().getDay();
-  let day = {};
-  
-    if(dayNumber > 0 && dayNumber < 6){
-      day =  'bus_times_week'
-    }else if(dayNumber === 0 ){
-      day =  'bus_times_sun';
-    }else if(dayNumber === 6 ){
-      day =  'bus_times_sat';
-    }else{
-      day = 'did not get the correct day'
-    }
-   return day
-}
-
-function isWithinMinutesOf(busLoadTime,beTime,numMinutes){
- 
-  let theirDate = new Date();
-  let myDate = new Date();
-  
-  theirDate.setHours(beTime.substr(0,2))
-  theirDate.setMinutes(beTime.substr(3,2))
-  
-  myDate.setHours(busLoadTime.substr(0,2))
-  myDate.setMinutes(busLoadTime.substr(3,2))
-
-  //subtract the largest time from the smallest time
-  var diff = Math.max(theirDate.valueOf(), myDate.valueOf()) - Math.min(theirDate.valueOf(), myDate.valueOf()); 
-
-  diff = diff/1000/60
-
-  //is the difference less than numMinutes???
-  return (diff <= numMinutes)? true : false;
-}
-
-
-function getNameOfTodaysTimetable(){
-  let dayNumber = new Date().getDay();
-  let day = {};
-  
-    if(dayNumber > 0 && dayNumber < 6){
-      day =  {dayName:'bus_times_week', dayNumber:dayNumber};
-    }else if(dayNumber === 0 ){
-      day =  {dayName:'bus_times_sun', dayNumber:dayNumber};
-    }else if(dayNumber === 6 ){
-      day =  {dayName:'bus_times_sat', dayNumber:dayNumber};
-    }else{
-      day = 'err'
-    }
-   return day
-}
