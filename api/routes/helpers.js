@@ -69,15 +69,44 @@ module.exports = {
     },[])
     return respWithSnaps;
   },
-   pretendSnapShotsForTesting: [
-      {forBusDue: '23:24', name:'pretend snap', date:'last monday'},
-      {forBusDue: '07:26', name:'pretend snap', date:'the monday before last'},
-      {forBusDue: '07:26', name:'pretend snap', date:'a few mondays ago'},
-      {forBusDue: '23:24', name:'pretend snap', date:'the monday before last'},
-      {forBusDue: '07:26', name:'pretend snap', date:'last monday'},
-      {forBusDue: '23:24', name:'pretend snap', date:'some other omonday'},
-      {forBusDue: '07:26', name:'pretend snap', date:'last monday'}
-    ]
+  //  pretendSnapShotsForTesting: [
+  //     {forBusDue: '23:24', name:'pretend snap', date:'last monday'},
+  //     {forBusDue: '07:26', name:'pretend snap', date:'the monday before last'},
+  //     {forBusDue: '07:26', name:'pretend snap', date:'a few mondays ago'},
+  //     {forBusDue: '23:24', name:'pretend snap', date:'the monday before last'},
+  //     {forBusDue: '07:26', name:'pretend snap', date:'last monday'},
+  //     {forBusDue: '23:24', name:'pretend snap', date:'some other omonday'},
+  //     {forBusDue: '07:26', name:'pretend snap', date:'last monday'}
+  //   ],
+  doAllTimeAverage: function(timetablesWithSnapshots){
+      timetablesWithSnapshots.map(timetable=>{
+        let theSnapTotalMinsLate = timetable.snapshots.reduce((out,snap,i,all)=>{
+          if(snap.earlyOrLate === 'late'){
+            out +=snap.minutesOff
+          }else if(snap.earlyOrLate === 'early'){
+            out -=snap.minutesOff
+          }
+          return out
+        },0)
+        let theSnapAverage = theSnapTotalMinsLate/timetable.snapshots.length
+        timetable.theSnapAverage = theSnapAverage;
+        // console.log("calculating... ", theSnapTotalMinsLate, ' / ',timetable.snapshots.length ,  ' = ',  theSnapTotalMinsLate/timetable.snapshots.length )
+        return timetable
+      })
+
+     return timetablesWithSnapshots
+
+    },
+
+    checkIfSameWeather: function(rainNum,weather){
+      if(weather === 'wet'){
+         if(rainNum > 0 ) return true
+      }else if(weather === 'dry'){
+        if(rainNum === 0 ) return true
+      }else{
+        return false;
+      }
+    }
   
   
 

@@ -172,7 +172,7 @@ router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
   .exec()
   .then(doc=>{
     let resp = doc[0].stops.find(stop=>stop.bestopid === bestopid).toObject()
-    let relevantSnaps = resp.snapshots.filter(snap=>snap.dayOfWeek === 'Mon')
+    let relevantSnaps = resp.snapshots.filter(snap=>snap.dayOfWeek === dayToday)
     let relevantTimetable = resp[`${whichTimetable.dayName}`];
     //relevantSnaps = helpers.pretendSnapShotsForTesting
 
@@ -185,6 +185,98 @@ router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
     res.status(500).json({error:err})
   })
 })
+
+
+/*
+
+=====================================
+              =========
+WITH SNAPSHOT =SUMMERY= included in the bus_times_x array
+              =========
+This route defaults to today's timetable and adds...
+1. snapshots[]
+2. theSnapAverage:Number 
+...to today's timetable
+
+theSnapAverage <0 means bus average is early
+theSnapAverage >0 means bus average is late
+
+====================================
+
+*/
+router.get('/stop/:busrouteNo/:direction/:bestopid/sum', (req,res,next)=>{
+  const {busrouteNo, direction, bestopid} = req.params
+
+  let whichTimetable = helpers.getNameOfTodaysTimetable();
+  let dayToday = new Date().toString().substring(0,3)
+  
+  BusRoute.find({route:busrouteNo,direction:direction,"stops.bestopid": bestopid, "stops.snapshots.dayOfWeek": `${dayToday}`})
+  .limit(1)
+  .exec()
+  .then(doc=>{
+    let resp = doc[0].stops.find(stop=>stop.bestopid === bestopid).toObject()
+    let relevantSnaps = resp.snapshots.filter(snap=>snap.dayOfWeek === dayToday)
+    let relevantTimetable = resp[`${whichTimetable.dayName}`];
+    //relevantSnaps = helpers.pretendSnapShotsForTesting
+
+    let respWithSnaps = helpers.addSnapshotsArrayToTimetable(relevantTimetable,relevantSnaps);
+    let newR = helpers.doAllTimeAverage(respWithSnaps)
+    res.status(200).json(newR)
+  })
+  .catch(err=>{
+    console.log("err route dir",err)
+    res.status(500).json({error:err})
+  })
+})
+
+
+
+/*
+
+=====================================
+              =========
+WITH SNAPSHOT =SUMMERY= included in the bus_times_x array
+              =========
+This route defaults to today's timetable
+weather should be 'wet' or 'dry' 
+
+====================================
+
+*/
+router.get('/stop/:busrouteNo/:direction/:bestopid/sum/:weather', (req,res,next)=>{
+  const {busrouteNo, direction, bestopid, weather} = req.params
+
+  let whichTimetable = helpers.getNameOfTodaysTimetable();
+  let dayToday = new Date().toString().substring(0,3)
+  
+  BusRoute.find({route:busrouteNo,direction:direction,"stops.bestopid": bestopid, "stops.snapshots.dayOfWeek": `${dayToday}`})
+  .limit(1)
+  .exec()
+  .then(doc=>{
+
+    //make sure we're dealing with one stop object
+    let resp = doc[0].stops.find(stop=>stop.bestopid === bestopid).toObject()
+
+    //filter to only include snapshots for the correct day of the week and the same weather as today(ie :weather in the req.params)
+    let relevantSnaps = resp.snapshots.filter(snap=>snap.dayOfWeek === dayToday && helpers.checkIfSameWeather(snap.weather.precipIntensity,weather))
+
+    //use the correct bus_times_X array
+    let relevantTimetable = resp[`${whichTimetable.dayName}`];
+    
+    //add appropiate snapshots:[] as key value pair in the appropiate bus_times_X
+    let respWithSnaps = helpers.addSnapshotsArrayToTimetable(relevantTimetable,relevantSnaps);
+    
+    //add overall average data, snapshots filtered by weather above so only ones with requested weather type will be included
+    let newR = helpers.doAllTimeAverage(respWithSnaps)
+
+    res.status(200).json(newR)
+  })
+  .catch(err=>{
+    console.log("err route dir",err)
+    res.status(500).json({error:err})
+  })
+})
+
 
 
 
