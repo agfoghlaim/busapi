@@ -161,15 +161,17 @@ WITH SNAPSHOT included in the bus_times_x array
 */
 router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
   const {busrouteNo, direction, bestopid} = req.params
-
-  // BusRoute.find({route:busrouteNo,direction:direction,"stops.bestopid": bestopid})
-  BusRoute.find({route:busrouteNo,direction:direction,"stops.bestopid": bestopid, "stops.snapshots.dayOfWeek": "Mon"})
+  
+  let whichTimetable = getNameOfTodaysTimetable();
+  let dayToday = new Date().toString().substring(0,3)
+  
+  BusRoute.find({route:busrouteNo,direction:direction,"stops.bestopid": bestopid, "stops.snapshots.dayOfWeek": `${dayToday}`})
   .limit(1)
   .exec()
   .then(doc=>{
     let resp = doc[0].stops.find(stop=>stop.bestopid === bestopid).toObject()
     let relevantSnaps = resp.snapshots.filter(snap=>snap.dayOfWeek === 'Mon')
-    let relevantTimetable = resp.bus_times_week;
+    let relevantTimetable = resp[`${whichTimetable.dayName}`];
     
     // let pretendSnapShotsForTesting = [
     //   {forBusDue: '23:24', name:'pretend snap', date:'last monday'},
@@ -198,7 +200,7 @@ router.get('/stop/:busrouteNo/:direction/:bestopid/snap', (req,res,next)=>{
             return out
         
     },[])
-    
+
     res.status(200).json(respWithSnaps)
   })
   .catch(err=>{
@@ -255,4 +257,21 @@ function isWithinMinutesOf(busLoadTime,beTime,numMinutes){
 
   //is the difference less than numMinutes???
   return (diff <= numMinutes)? true : false;
+}
+
+
+function getNameOfTodaysTimetable(){
+  let dayNumber = new Date().getDay();
+  let day = {};
+  
+    if(dayNumber > 0 && dayNumber < 6){
+      day =  {dayName:'bus_times_week', dayNumber:dayNumber};
+    }else if(dayNumber === 0 ){
+      day =  {dayName:'bus_times_sun', dayNumber:dayNumber};
+    }else if(dayNumber === 6 ){
+      day =  {dayName:'bus_times_sat', dayNumber:dayNumber};
+    }else{
+      day = 'err'
+    }
+   return day
 }
