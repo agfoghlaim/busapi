@@ -12,9 +12,6 @@ const busStopSchema = mongoose.Schema({
   bus_times_week:[busTimesSchema]
 })
 
-
-
-
 const busRoutesSchema = mongoose.Schema({
   _id: mongoose.Schema.Types.ObjectId,
   route: String,

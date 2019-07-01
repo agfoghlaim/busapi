@@ -16,12 +16,9 @@ router.get('/:bestopid', (req,res,next)=>{
 
 router.get('/:bestopid/:dayofweek', (req,res,next)=>{
   const {bestopid, dayofweek} = req.params
-
     res.status(200).json({
       message: direction
     })
-
-
 })
 
 
